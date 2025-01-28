@@ -1,80 +1,66 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
-from bs4 import BeautifulSoup
-import html2text
 
-def fetch_url_content(url):
+def check_url_accessibility(url):
     """
-    Fetches and parses content from a given URL.
-    Returns both HTML and plain text versions.
+    Check if the URL is accessible and returns proper headers
     """
     try:
-        # Send request with a user agent to avoid potential blocking
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        # Parse HTML content
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Convert HTML to markdown/plain text
-        h = html2text.HTML2Text()
-        h.ignore_links = False
-        h.ignore_images = False
-        plain_text = h.handle(response.text)
-        
-        return soup.prettify(), plain_text
-        
-    except requests.RequestException as e:
-        st.error(f"Error fetching URL: {str(e)}")
-        return None, None
+        response = requests.head(url)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
 
 def main():
     # Set page configuration
     st.set_page_config(
-        page_title="URL Content Renderer",
+        page_title="Website Renderer",
         page_icon="🌐",
-        layout="wide"
+        layout="wide",
+        initial_sidebar_state="collapsed"
     )
     
-    # Add title and description
-    st.title("URL Content Renderer")
-    st.write("This app fetches and displays content from a given URL.")
+    # Add title
+    st.title("Website Renderer")
     
-    # URL input
+    # URL to render
     url = "https://paulspector.com/we-should-not-discourage-students-from-manual-work/"
     
     if url:
-        # Add a spinner while loading
-        with st.spinner('Fetching content...'):
-            html_content, plain_text = fetch_url_content(url)
+        # Check if URL is accessible
+        if check_url_accessibility(url):
+            # Create a container for the iframe
+            container = st.container()
             
-            if html_content and plain_text:
-                # Create tabs for different view options
-                tab1, tab2 = st.tabs(["Rendered Content", "Raw HTML"])
+            with container:
+                # Add some styling to ensure the iframe takes up most of the space
+                st.markdown("""
+                    <style>
+                        iframe {
+                            width: 100%;
+                            height: 800px;
+                            border: none;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                        }
+                    </style>
+                """, unsafe_allow_html=True)
                 
-                with tab1:
-                    st.markdown(plain_text)
+                # Render the webpage in an iframe
+                components.iframe(url, height=800, scrolling=True)
                 
-                with tab2:
-                    st.code(html_content, language='html')
-                    
-                # Add download buttons
-                st.download_button(
-                    label="Download as Text",
-                    data=plain_text,
-                    file_name="content.txt",
-                    mime="text/plain"
-                )
-                
-                st.download_button(
-                    label="Download as HTML",
-                    data=html_content,
-                    file_name="content.html",
-                    mime="text/html"
-                )
+                # Add a direct link to the website
+                st.markdown(f"<br>View the original website: [{url}]({url})", unsafe_allow_html=True)
+        else:
+            st.error("Unable to access the URL. Please check if the website is accessible and allows embedding.")
+            
+        # Add footer with additional information
+        st.markdown("---")
+        st.markdown("""
+            <small>Note: Some websites may block embedding due to security policies. 
+            In such cases, you'll need to visit the original website directly.</small>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
